@@ -6,8 +6,10 @@ const stocks = require('./stocks.config');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// In-memory cache: avoid hammering Yahoo Finance on every poll
-let cache = { data: null, fetchedAt: 0 };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Per-symbol cache
+const symbolCache = {};
 const CACHE_TTL_MS = 55 * 1000;
 
 // ── RSI Calculation (Wilder's smoothing, period=14) ──────────────────────────
@@ -15,9 +17,7 @@ const CACHE_TTL_MS = 55 * 1000;
 function calcRSI(closes, period = 14) {
   if (closes.length < period + 1) return null;
 
-  let gains = 0;
-  let losses = 0;
-
+  let gains = 0, losses = 0;
   for (let i = 1; i <= period; i++) {
     const change = closes[i] - closes[i - 1];
     if (change > 0) gains += change;
@@ -29,20 +29,23 @@ function calcRSI(closes, period = 14) {
 
   for (let i = period + 1; i < closes.length; i++) {
     const change = closes[i] - closes[i - 1];
-    const gain = change > 0 ? change : 0;
-    const loss = change < 0 ? Math.abs(change) : 0;
-    avgGain = (avgGain * (period - 1) + gain) / period;
-    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    avgGain = (avgGain * 13 + (change > 0 ? change : 0)) / 14;
+    avgLoss = (avgLoss * 13 + (change < 0 ? Math.abs(change) : 0)) / 14;
   }
 
   if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return parseFloat((100 - 100 / (1 + rs)).toFixed(2));
+  return parseFloat((100 - 100 / (1 + avgGain / avgLoss)).toFixed(2));
 }
 
 // ── Fetch RSI for a single symbol ────────────────────────────────────────────
 
 async function fetchRSI(symbol, name, retries = 2) {
+  // Return cache if fresh
+  const cached = symbolCache[symbol];
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return { ...cached.data, cached: true };
+  }
+
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 45);
@@ -66,18 +69,20 @@ async function fetchRSI(symbol, name, retries = 2) {
     if (rsi !== null && rsi >= 70) zone = 'Overbought';
     else if (rsi !== null && rsi <= 30) zone = 'Oversold';
 
-    return {
-      symbol,
-      name,
+    const data = {
+      symbol, name,
       price: parseFloat(currentPrice.toFixed(2)),
-      rsi,
-      zone,
+      rsi, zone,
       updatedAt: new Date().toISOString(),
     };
+
+    symbolCache[symbol] = { data, fetchedAt: Date.now() };
+    return data;
+
   } catch (err) {
-    if (retries > 0 && err.message.includes('Too Many Requests')) {
-      console.warn(`[${symbol}] rate limited, retrying in 2s…`);
-      await sleep(2000);
+    if (retries > 0 && (err.message.includes('Too Many Requests') || err.message.includes('429'))) {
+      console.warn(`[${symbol}] rate limited, retrying in 3s…`);
+      await sleep(3000);
       return fetchRSI(symbol, name, retries - 1);
     }
     console.error(`[${symbol}] fetch error:`, err.message);
@@ -85,37 +90,40 @@ async function fetchRSI(symbol, name, retries = 2) {
   }
 }
 
-// ── Data refresh ──────────────────────────────────────────────────────────────
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-async function refreshData() {
-  console.log('Fetching RSI data for', stocks.length, 'symbols…');
-  const results = [];
-  for (const s of stocks) {
-    results.push(await fetchRSI(s.symbol, s.name));
-    await sleep(400); // avoid Yahoo Finance rate limiting
-  }
-  cache = { data: results, fetchedAt: Date.now() };
-  console.log('RSI data cached at', new Date().toISOString());
-  return results;
-}
-
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Return configured stock list (no RSI data)
+app.get('/api/stocks', (req, res) => {
+  res.json(stocks);
+});
+
+// Fetch RSI for a single symbol
+app.get('/api/rsi/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase();
+  const stock = stocks.find(s => s.symbol.toUpperCase() === symbol);
+  if (!stock) return res.status(404).json({ error: 'Symbol not configured' });
+
+  try {
+    const data = await fetchRSI(stock.symbol, stock.name);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Fetch RSI for all symbols sequentially
 app.get('/api/rsi', async (req, res) => {
   try {
-    const now = Date.now();
-    if (cache.data && now - cache.fetchedAt < CACHE_TTL_MS) {
-      return res.json({ data: cache.data, fetchedAt: new Date(cache.fetchedAt).toISOString(), cached: true });
+    const results = [];
+    for (const s of stocks) {
+      results.push(await fetchRSI(s.symbol, s.name));
+      await sleep(400);
     }
-    const data = await refreshData();
-    res.json({ data, fetchedAt: new Date(cache.fetchedAt).toISOString(), cached: false });
+    res.json({ data: results, fetchedAt: new Date().toISOString() });
   } catch (err) {
-    console.error('API error:', err);
-    res.status(500).json({ error: 'Failed to fetch data' });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -123,9 +131,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-
 app.listen(PORT, () => {
   console.log(`RSI Dashboard running on port ${PORT}`);
-  refreshData().catch(console.error);
 });
