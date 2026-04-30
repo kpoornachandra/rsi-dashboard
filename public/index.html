@@ -82,8 +82,10 @@
       gap: 12px;
     }
 
-    @media (min-width: 640px)  { #grid { gap: 16px; } h1 { font-size: 1.6rem; } }
-    @media (min-width: 900px)  { #grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 480px)  { #grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 640px)  { #grid { gap: 14px; } h1 { font-size: 1.6rem; } }
+    @media (min-width: 900px)  { #grid { grid-template-columns: repeat(5, 1fr); } }
+    @media (min-width: 1200px) { #grid { grid-template-columns: repeat(6, 1fr); } }
 
     /* ── Card ── */
     .card {
@@ -219,6 +221,19 @@
     .dot.red   { background: #ef4444; }
     .dot.green { background: #22c55e; }
     .dot.gray  { background: #64748b; }
+
+    /* ── Section divider ── */
+    .section-label {
+      grid-column: 1 / -1;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 6px 2px 2px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
   </style>
 </head>
 <body>
@@ -311,7 +326,18 @@
 
   function renderAll() {
     const grid = document.getElementById('grid');
-    grid.innerHTML = stocks.map(s => renderCard(s)).join('');
+    const nse = stocks.filter(s => s.symbol.endsWith('.NS'));
+    const us  = stocks.filter(s => !s.symbol.endsWith('.NS'));
+    let html = '';
+    if (nse.length) {
+      html += `<div class="section-label">🇮🇳 NSE India</div>`;
+      html += nse.map(s => renderCard(s)).join('');
+    }
+    if (us.length) {
+      html += `<div class="section-label">🇺🇸 US Markets</div>`;
+      html += us.map(s => renderCard(s)).join('');
+    }
+    grid.innerHTML = html;
   }
 
   function updateCard(symbol) {
