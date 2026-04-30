@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 
 // In-memory cache: avoid hammering Yahoo Finance on every poll
 let cache = { data: null, fetchedAt: 0 };
-const CACHE_TTL_MS = 55 * 1000; // 55 seconds — just under the 60s frontend poll
+const CACHE_TTL_MS = 55 * 1000;
 
 // ── RSI Calculation (Wilder's smoothing, period=14) ──────────────────────────
 
@@ -18,7 +18,6 @@ function calcRSI(closes, period = 14) {
   let gains = 0;
   let losses = 0;
 
-  // Seed: simple average of first `period` changes
   for (let i = 1; i <= period; i++) {
     const change = closes[i] - closes[i - 1];
     if (change > 0) gains += change;
@@ -28,7 +27,6 @@ function calcRSI(closes, period = 14) {
   let avgGain = gains / period;
   let avgLoss = losses / period;
 
-  // Wilder's smoothing for the rest
   for (let i = period + 1; i < closes.length; i++) {
     const change = closes[i] - closes[i - 1];
     const gain = change > 0 ? change : 0;
@@ -47,7 +45,7 @@ function calcRSI(closes, period = 14) {
 async function fetchRSI(symbol, name) {
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 45); // 45 days to ensure 30 trading days
+  startDate.setDate(startDate.getDate() - 45);
 
   try {
     const result = await yahooFinance.historical(symbol, {
@@ -118,6 +116,5 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`RSI Dashboard running on port ${PORT}`);
-  // Warm cache on startup
   refreshData().catch(console.error);
 });
