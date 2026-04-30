@@ -42,7 +42,7 @@ function calcRSI(closes, period = 14) {
 
 // ── Fetch RSI for a single symbol ────────────────────────────────────────────
 
-async function fetchRSI(symbol, name) {
+async function fetchRSI(symbol, name, retries = 2) {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 45);
@@ -75,6 +75,11 @@ async function fetchRSI(symbol, name) {
       updatedAt: new Date().toISOString(),
     };
   } catch (err) {
+    if (retries > 0 && err.message.includes('Too Many Requests')) {
+      console.warn(`[${symbol}] rate limited, retrying in 2s…`);
+      await sleep(2000);
+      return fetchRSI(symbol, name, retries - 1);
+    }
     console.error(`[${symbol}] fetch error:`, err.message);
     return { symbol, name, error: err.message };
   }
@@ -82,9 +87,15 @@ async function fetchRSI(symbol, name) {
 
 // ── Data refresh ──────────────────────────────────────────────────────────────
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 async function refreshData() {
   console.log('Fetching RSI data for', stocks.length, 'symbols…');
-  const results = await Promise.all(stocks.map(s => fetchRSI(s.symbol, s.name)));
+  const results = [];
+  for (const s of stocks) {
+    results.push(await fetchRSI(s.symbol, s.name));
+    await sleep(400); // avoid Yahoo Finance rate limiting
+  }
   cache = { data: results, fetchedAt: Date.now() };
   console.log('RSI data cached at', new Date().toISOString());
   return results;
