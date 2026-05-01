@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RSI Dashboard — NSE Stocks</title>
+  <title>RSI Dashboard — US Stocks</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,13 +13,24 @@
       --border: #2a2d3d;
       --text: #e2e8f0;
       --muted: #94a3b8;
+      --dim: #475569;
       --accent: #6366f1;
 
-      --overbought-bg: rgba(239, 68, 68, 0.12);
-      --overbought-border: rgba(239, 68, 68, 0.45);
+      --ob-bg: rgba(239,68,68,.12);
+      --ob-border: rgba(239,68,68,.45);
+      --ob-rsi: #ef4444;
+      --ob-badge-bg: rgba(239,68,68,.2);
+      --ob-badge: #f87171;
+      --ob-bar: #ef4444;
 
-      --oversold-bg: rgba(34, 197, 94, 0.12);
-      --oversold-border: rgba(34, 197, 94, 0.45);
+      --os-bg: rgba(34,197,94,.12);
+      --os-border: rgba(34,197,94,.45);
+      --os-rsi: #22c55e;
+      --os-badge-bg: rgba(34,197,94,.2);
+      --os-badge: #4ade80;
+      --os-bar: #22c55e;
+
+      --neu-bar: #6366f1;
     }
 
     body {
@@ -27,12 +38,12 @@
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
-      padding: 16px;
+      padding: 16px 16px 32px;
     }
 
-    /* ── Header ── */
+    /* ── Header ────────────────────────────────────────────────────── */
     header {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 0 auto 20px;
     }
 
@@ -42,52 +53,63 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
-    h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    h1 { font-size: 1.4rem; font-weight: 800; letter-spacing: -.02em; }
     h1 span { color: var(--accent); }
 
-    .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-    .last-updated { font-size: 0.78rem; color: var(--muted); }
-
-    /* ── Buttons ── */
-    button {
-      cursor: pointer;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      padding: 8px 16px;
-      transition: opacity 0.15s, transform 0.1s;
+    /* countdown row */
+    .countdown-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: .78rem;
+      color: var(--muted);
     }
-    button:active { transform: scale(0.97); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .bar-outer {
+      flex: 1;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      min-width: 80px;
+    }
+    .bar-inner {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 1s linear;
+    }
+
+    /* ── Buttons ───────────────────────────────────────────────────── */
+    button {
+      cursor: pointer; border: none; border-radius: 8px;
+      font-size: .82rem; font-weight: 600;
+      padding: 8px 16px;
+      transition: opacity .15s, transform .1s;
+    }
+    button:active { transform: scale(.97); }
+    button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 
     .btn-primary { background: var(--accent); color: #fff; }
-    .btn-ghost {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-    .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+    .btn-primary:hover:not(:disabled) { opacity: .88; }
 
-    /* ── Grid ── */
+    /* ── Grid ──────────────────────────────────────────────────────── */
     #grid {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 0 auto;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 12px;
     }
+    @media (min-width: 560px)  { #grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 760px)  { #grid { grid-template-columns: repeat(4, 1fr); gap: 14px; } }
+    @media (min-width: 1000px) { #grid { grid-template-columns: repeat(5, 1fr); } }
 
-    @media (min-width: 480px)  { #grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (min-width: 640px)  { #grid { gap: 14px; } h1 { font-size: 1.6rem; } }
-    @media (min-width: 900px)  { #grid { grid-template-columns: repeat(5, 1fr); } }
-    @media (min-width: 1200px) { #grid { grid-template-columns: repeat(6, 1fr); } }
-
-    /* ── Card ── */
+    /* ── Card ──────────────────────────────────────────────────────── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -95,145 +117,121 @@
       padding: 14px 14px 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      transition: border-color 0.3s, background 0.3s;
+      gap: 8px;
+      transition: border-color .3s, background .3s;
     }
+    .card.overbought { background: var(--ob-bg); border-color: var(--ob-border); }
+    .card.oversold   { background: var(--os-bg); border-color: var(--os-border); }
 
-    .card.overbought { background: var(--overbought-bg); border-color: var(--overbought-border); }
-    .card.oversold   { background: var(--oversold-bg);   border-color: var(--oversold-border); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
 
+    .card-ticker {
+      font-size: .72rem; font-weight: 800;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+    }
     .card-name {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-size: .62rem; color: var(--dim); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
-    .card-symbol { font-size: 0.63rem; color: #475569; margin-top: -2px; }
-
-    .card-body {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-height: 80px;
-      justify-content: center;
+    /* zone badge */
+    .card-zone {
+      font-size: .6rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px;
+      letter-spacing: .06em; white-space: nowrap; flex-shrink: 0;
     }
+    .card.overbought .card-zone { background: var(--ob-badge-bg); color: var(--ob-badge); }
+    .card.oversold   .card-zone { background: var(--os-badge-bg); color: var(--os-badge); }
+    .card.neutral    .card-zone { background: rgba(100,116,139,.2); color: var(--muted); }
 
-    .card-price { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+    /* price + RSI */
+    .card-price { font-size: .9rem; font-weight: 600; }
 
     .card-rsi {
-      font-size: 2.5rem;
-      font-weight: 800;
-      line-height: 1;
-      letter-spacing: -0.04em;
-      color: var(--text);
+      font-size: 2.6rem; font-weight: 800;
+      line-height: 1; letter-spacing: -.04em;
     }
-    .card.overbought .card-rsi { color: #ef4444; }
-    .card.oversold   .card-rsi { color: #22c55e; }
+    .card.overbought .card-rsi { color: var(--ob-rsi); }
+    .card.oversold   .card-rsi { color: var(--os-rsi); }
+    .card.neutral    .card-rsi { color: var(--text); }
 
-    .card-zone {
-      display: inline-block;
-      font-size: 0.68rem;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 20px;
-      letter-spacing: 0.05em;
-      align-self: flex-start;
+    /* RSI visual bar */
+    .rsi-bar-wrap {
+      position: relative;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: visible;
     }
-    .card.overbought .card-zone { background: rgba(239,68,68,0.2); color: #f87171; }
-    .card.oversold   .card-zone { background: rgba(34,197,94,0.2); color: #4ade80; }
-    .card.neutral    .card-zone { background: rgba(100,116,139,0.2); color: var(--muted); }
+    .rsi-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .5s ease;
+    }
+    .card.overbought .rsi-bar-fill { background: var(--ob-bar); }
+    .card.oversold   .rsi-bar-fill { background: var(--os-bar); }
+    .card.neutral    .rsi-bar-fill { background: var(--neu-bar); }
 
-    .card-error {
-      font-size: 0.7rem;
-      color: #f87171;
-      line-height: 1.4;
-      word-break: break-word;
+    /* zone markers at 30 and 70 */
+    .rsi-bar-wrap::before,
+    .rsi-bar-wrap::after {
+      content: '';
+      position: absolute;
+      top: -2px; bottom: -2px;
+      width: 1px;
+      background: rgba(148,163,184,.3);
     }
+    .rsi-bar-wrap::before { left: 30%; }
+    .rsi-bar-wrap::after  { left: 70%; }
 
-    .card-idle {
-      font-size: 0.75rem;
-      color: #475569;
-      font-style: italic;
-    }
-
-    /* ── Per-card fetch button ── */
-    .card-fetch-btn {
-      margin-top: 6px;
-      width: 100%;
-      padding: 7px 0;
-      font-size: 0.76rem;
-      font-weight: 600;
-      border-radius: 8px;
-      background: rgba(99,102,241,0.12);
-      color: #a5b4fc;
-      border: 1px solid rgba(99,102,241,0.25);
-      transition: background 0.15s, color 0.15s;
-    }
-    .card-fetch-btn:hover:not(:disabled) {
-      background: rgba(99,102,241,0.22);
-      color: #c7d2fe;
-    }
-    .card-fetch-btn.loading {
-      color: #64748b;
-      background: rgba(99,102,241,0.06);
+    .rsi-bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: .55rem;
+      color: var(--dim);
+      margin-top: 2px;
+      padding: 0 1px;
     }
 
-    /* ── Spinner ── */
-    .spinner {
-      display: inline-block;
-      width: 12px; height: 12px;
-      border: 2px solid #475569;
-      border-top-color: #a5b4fc;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 4px;
+    /* last updated */
+    .card-updated {
+      font-size: .62rem;
+      color: var(--dim);
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Skeleton ── */
+    /* loading / error states */
+    .card-idle   { font-size: .74rem; color: var(--dim); font-style: italic; }
+    .card-error  { font-size: .7rem;  color: #f87171; line-height: 1.4; }
+
+    /* skeleton */
     .skeleton {
       border-radius: 6px;
       background: linear-gradient(90deg, var(--border) 25%, #2e3248 50%, var(--border) 75%);
       background-size: 200% 100%;
       animation: shimmer 1.4s infinite;
     }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-    /* ── Legend ── */
+    /* spinner */
+    .spinner {
+      display: inline-block; width: 11px; height: 11px;
+      border: 2px solid #475569; border-top-color: #a5b4fc;
+      border-radius: 50%; animation: spin .7s linear infinite;
+      vertical-align: middle; margin-right: 4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Legend ────────────────────────────────────────────────────── */
     .legend {
-      max-width: 900px;
-      margin: 18px auto 0;
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      font-size: 0.75rem;
-      color: var(--muted);
+      max-width: 1100px; margin: 20px auto 0;
+      display: flex; gap: 18px; flex-wrap: wrap;
+      font-size: .75rem; color: var(--muted);
     }
     .legend span { display: flex; align-items: center; gap: 6px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
     .dot.red   { background: #ef4444; }
     .dot.green { background: #22c55e; }
-    .dot.gray  { background: #64748b; }
-
-    /* ── Section divider ── */
-    .section-label {
-      grid-column: 1 / -1;
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: #475569;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      padding: 6px 2px 2px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 2px;
-    }
+    .dot.gray  { background: #6366f1; }
   </style>
 </head>
 <body>
@@ -241,10 +239,13 @@
 <header>
   <div class="header-top">
     <h1>RSI <span>Dashboard</span></h1>
-    <div class="header-actions">
-      <span class="last-updated" id="lastUpdated"></span>
-      <button class="btn-ghost" id="fetchAllBtn" onclick="fetchAll()">Fetch All</button>
+    <div class="header-right">
+      <button class="btn-primary" id="refreshBtn" onclick="manualRefresh()">Refresh Now</button>
     </div>
+  </div>
+  <div class="countdown-row">
+    <span>Next refresh in <strong id="countdownSec">300</strong>s</span>
+    <div class="bar-outer"><div class="bar-inner" id="countdownBar" style="width:100%"></div></div>
   </div>
 </header>
 
@@ -252,26 +253,36 @@
 
 <div class="legend">
   <span><span class="dot green"></span> RSI ≤ 30 — Oversold</span>
-  <span><span class="dot gray"></span> RSI 30–70 — Neutral</span>
-  <span><span class="dot red"></span> RSI ≥ 70 — Overbought</span>
+  <span><span class="dot gray"></span>  RSI 30–70 — Neutral</span>
+  <span><span class="dot red"></span>   RSI ≥ 70 — Overbought</span>
+  <span style="margin-left:auto;color:var(--dim)" id="globalUpdated"></span>
 </div>
 
 <script>
-  // State: symbol → stock data or null
-  const state = {};
-  let stocks = [];
+  const POLL_INTERVAL = 300; // seconds (5 min)
+  const COOLDOWN      = 60;  // seconds
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  let stocks      = [];
+  let state       = {};      // symbol → data | {loading} | {error}
+  let countdown   = POLL_INTERVAL;
+  let cooldown    = 0;
+  let countdownTm = null;
+  let cooldownTm  = null;
 
-  function esc(s) {
-    return String(s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  // ── Utilities ───────────────────────────────────────────────────────────────
 
-  function formatPrice(p) {
-    if (!p && p !== 0) return '—';
-    return '₹' + p.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const esc = s => String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const fmtPrice = p =>
+    (p != null) ? '$' + p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+
+  function timeAgo(iso) {
+    const secs = Math.floor((Date.now() - new Date(iso)) / 1000);
+    if (secs < 60)   return `${secs}s ago`;
+    if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+    return `${Math.floor(secs/3600)}h ago`;
   }
 
   function zoneClass(zone) {
@@ -280,124 +291,169 @@
     return 'neutral';
   }
 
-  // ── Render a single card ─────────────────────────────────────────────────
+  // ── Card renderer ───────────────────────────────────────────────────────────
 
   function renderCard(stock) {
     const { symbol, name } = stock;
-    const data = state[symbol];
-    const id = 'card-' + symbol.replace(/\./g, '-');
+    const d   = state[symbol];
+    const id  = 'card-' + symbol;
+    let cls   = 'neutral';
+    let inner = '';
 
-    let bodyHtml = '';
-    let cardClass = 'neutral';
-
-    if (!data) {
-      bodyHtml = `<div class="card-idle">Click below to fetch RSI</div>`;
-    } else if (data.loading) {
-      bodyHtml = `
-        <div class="skeleton" style="height:14px;width:60px"></div>
-        <div class="skeleton" style="height:44px;width:80px;margin:4px 0"></div>
-        <div class="skeleton" style="height:22px;width:90px;border-radius:20px"></div>`;
-    } else if (data.error) {
-      bodyHtml = `<div class="card-error">⚠ ${esc(data.error)}</div>`;
+    if (!d) {
+      inner = `<div class="card-idle">—</div>`;
+    } else if (d.loading) {
+      cls   = 'neutral';
+      inner = `
+        <div class="skeleton" style="height:12px;width:55px"></div>
+        <div class="skeleton" style="height:42px;width:72px;margin:4px 0"></div>
+        <div class="skeleton" style="height:6px;border-radius:3px"></div>`;
+    } else if (d.error) {
+      inner = `<div class="card-error">⚠ ${esc(d.error)}</div>`;
     } else {
-      cardClass = zoneClass(data.zone);
-      bodyHtml = `
-        <div class="card-price">${formatPrice(data.price)}</div>
-        <div class="card-rsi">${data.rsi !== null ? data.rsi.toFixed(1) : '—'}</div>
-        <div class="card-zone">${esc(data.zone)}</div>`;
+      cls = zoneClass(d.zone);
+      const pct  = Math.min(100, Math.max(0, d.rsi)).toFixed(1);
+      inner = `
+        <div class="card-price">${fmtPrice(d.price)}</div>
+        <div class="card-rsi">${d.rsi != null ? d.rsi.toFixed(1) : '—'}</div>
+        <div class="rsi-bar-wrap">
+          <div class="rsi-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="rsi-bar-labels"><span>0</span><span>30</span><span>70</span><span>100</span></div>
+        <div class="card-updated">${d.updatedAt ? timeAgo(d.updatedAt) : ''}</div>`;
     }
 
-    const btnLabel = data && data.loading
-      ? `<span class="spinner"></span>Fetching…`
-      : data && !data.error ? 'Refresh' : 'Fetch RSI';
+    const zoneBadge = (!d || d.loading || d.error)
+      ? '' : `<span class="card-zone">${esc(d.zone)}</span>`;
 
     return `
-      <div class="card ${cardClass}" id="${id}">
-        <div class="card-name">${esc(name)}</div>
-        <div class="card-symbol">${esc(symbol)}</div>
-        <div class="card-body">${bodyHtml}</div>
-        <button class="card-fetch-btn ${data && data.loading ? 'loading' : ''}"
-                ${data && data.loading ? 'disabled' : ''}
-                onclick="fetchOne('${symbol}')">
-          ${btnLabel}
-        </button>
+      <div class="card ${cls}" id="${id}">
+        <div class="card-header">
+          <div>
+            <div class="card-ticker">${esc(symbol)}</div>
+            <div class="card-name">${esc(name)}</div>
+          </div>
+          ${zoneBadge}
+        </div>
+        ${inner}
       </div>`;
   }
 
   function renderAll() {
-    const grid = document.getElementById('grid');
-    const nse = stocks.filter(s => s.symbol.endsWith('.NS'));
-    const us  = stocks.filter(s => !s.symbol.endsWith('.NS'));
-    let html = '';
-    if (nse.length) {
-      html += `<div class="section-label">🇮🇳 NSE India</div>`;
-      html += nse.map(s => renderCard(s)).join('');
-    }
-    if (us.length) {
-      html += `<div class="section-label">🇺🇸 US Markets</div>`;
-      html += us.map(s => renderCard(s)).join('');
-    }
-    grid.innerHTML = html;
+    document.getElementById('grid').innerHTML = stocks.map(s => renderCard(s)).join('');
   }
 
   function updateCard(symbol) {
-    const id = 'card-' + symbol.replace(/\./g, '-');
-    const el = document.getElementById(id);
+    const el = document.getElementById('card-' + symbol);
     const stock = stocks.find(s => s.symbol === symbol);
-    if (el && stock) {
-      el.outerHTML = renderCard(stock);
-    }
+    if (el && stock) el.outerHTML = renderCard(stock);
   }
 
-  // ── Fetch one stock ───────────────────────────────────────────────────────
+  // ── Fetch ───────────────────────────────────────────────────────────────────
 
-  async function fetchOne(symbol) {
-    state[symbol] = { loading: true };
-    updateCard(symbol);
-
+  async function fetchAll(force = false) {
     try {
-      const res = await fetch(`/api/rsi/${encodeURIComponent(symbol)}`);
+      const url = force ? '/api/refresh' : '/api/rsi';
+      const method = force ? 'POST' : 'GET';
+      const res  = await fetch(url, { method });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-      state[symbol] = json;
+
+      if (!res.ok) {
+        // cooldown rejection
+        if (res.status === 429 && json.wait) startCooldown(json.wait);
+        throw new Error(json.error || `HTTP ${res.status}`);
+      }
+
+      const items = json.data ?? [];
+      items.forEach(item => { state[item.symbol] = item; });
+      renderAll();
+
+      const ts = json.fetchedAt;
+      if (ts) {
+        document.getElementById('globalUpdated').textContent = 'Updated ' + new Date(ts).toLocaleTimeString();
+      }
+
+      // Refresh "X mins ago" labels every 30s
+      clearInterval(window._agoTimer);
+      window._agoTimer = setInterval(() => {
+        stocks.forEach(s => {
+          const d = state[s.symbol];
+          if (d && d.updatedAt && !d.loading && !d.error) {
+            const el = document.querySelector(`#card-${s.symbol} .card-updated`);
+            if (el) el.textContent = timeAgo(d.updatedAt);
+          }
+        });
+      }, 30000);
+
     } catch (err) {
-      state[symbol] = { error: err.message };
+      console.error('Fetch error:', err.message);
     }
-
-    updateCard(symbol);
-    updateLastUpdated();
   }
 
-  // ── Fetch all sequentially ────────────────────────────────────────────────
+  // ── Manual refresh ──────────────────────────────────────────────────────────
 
-  async function fetchAll() {
-    const btn = document.getElementById('fetchAllBtn');
-    btn.disabled = true;
-    btn.textContent = 'Fetching…';
+  async function manualRefresh() {
+    if (cooldown > 0) return;
+    resetCountdown();
+    await fetchAll(true);
+    startCooldown(COOLDOWN);
+  }
 
-    for (const s of stocks) {
-      await fetchOne(s.symbol);
+  function startCooldown(secs) {
+    cooldown = secs;
+    const btn = document.getElementById('refreshBtn');
+    clearInterval(cooldownTm);
+    cooldownTm = setInterval(() => {
+      cooldown = Math.max(0, cooldown - 1);
+      btn.textContent = cooldown > 0 ? `Wait ${cooldown}s` : 'Refresh Now';
+      btn.disabled    = cooldown > 0;
+      if (cooldown === 0) clearInterval(cooldownTm);
+    }, 1000);
+    btn.textContent = `Wait ${cooldown}s`;
+    btn.disabled    = true;
+  }
+
+  // ── Countdown ───────────────────────────────────────────────────────────────
+
+  function resetCountdown() {
+    countdown = POLL_INTERVAL;
+    clearInterval(countdownTm);
+    countdownTm = setInterval(tickCountdown, 1000);
+    updateCountdownUI();
+  }
+
+  function tickCountdown() {
+    countdown = Math.max(0, countdown - 1);
+    updateCountdownUI();
+    if (countdown === 0) {
+      clearInterval(countdownTm);
+      fetchAll().then(() => resetCountdown());
     }
-
-    btn.disabled = false;
-    btn.textContent = 'Fetch All';
   }
 
-  function updateLastUpdated() {
-    const el = document.getElementById('lastUpdated');
-    el.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  function updateCountdownUI() {
+    document.getElementById('countdownSec').textContent = countdown;
+    document.getElementById('countdownBar').style.width = (countdown / POLL_INTERVAL * 100) + '%';
   }
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // ── Init ────────────────────────────────────────────────────────────────────
 
   async function init() {
     try {
       const res = await fetch('/api/stocks');
       stocks = await res.json();
+
+      // show skeletons immediately
+      stocks.forEach(s => { state[s.symbol] = { loading: true }; });
       renderAll();
+
+      await fetchAll();
+      resetCountdown();
     } catch (err) {
       document.getElementById('grid').innerHTML =
-        `<p style="color:#f87171;padding:16px">Failed to load stock list: ${esc(err.message)}</p>`;
+        `<p style="color:#f87171;padding:16px;grid-column:1/-1">
+           Failed to initialise: ${esc(err.message)}
+         </p>`;
     }
   }
 

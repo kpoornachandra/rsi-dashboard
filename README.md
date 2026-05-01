@@ -1,38 +1,53 @@
-# RSI Dashboard — NSE Stocks
+# RSI Dashboard — US Stocks
 
-Real-time RSI(14) dashboard for NSE stocks. Polls Yahoo Finance every 60 seconds and displays color-coded cards for each stock.
+Real-time RSI(14) dashboard for US stocks powered by the **Massive Market Data API**.
+Auto-refreshes every 5 minutes. Mobile-first, no framework.
+
+## Stack
+- **Backend**: Node.js + Express + Axios
+- **Frontend**: Plain HTML/CSS/JS (single file, no build step)
+- **Data**: Massive Market Data API (historical daily OHLC)
+- **Hosting**: Railway
 
 ## Project Structure
 
 ```
 rsi-dashboard/
 ├── server.js          # Express backend + RSI calculation
-├── stocks.config.js   # Edit this to add/remove stock symbols
+├── stocks.config.js   # Edit to add/remove symbols
 ├── public/
-│   └── index.html     # Frontend (single file, no build step)
+│   └── index.html     # Full frontend
+├── .env.example       # Copy to .env and fill in your key
 ├── package.json
 ├── Procfile
 └── railway.json
 ```
 
-## Adding / Removing Stocks
+## Get a Massive Market Data API Key
+
+1. Go to [massive.com](https://massive.com) and sign up (free tier available)
+2. Go to your dashboard → API Keys → Create key
+3. Copy the key — you'll use it as `MASSIVE_API_KEY`
+
+## Run Locally
+
+```bash
+cp .env.example .env
+# Edit .env and set your MASSIVE_API_KEY
+npm install
+npm start
+# Open http://localhost:3000
+```
+
+## Add / Remove Stocks
 
 Edit `stocks.config.js` — no other files need changing:
 
 ```js
 module.exports = [
-  { symbol: 'RELIANCE.NS', name: 'Reliance Industries' },
-  { symbol: 'TATAMOTORS.NS', name: 'Tata Motors' },
-  // Add more NSE symbols here (suffix .NS)
+  { symbol: 'AAPL', name: 'Apple' },
+  { symbol: 'SHOP', name: 'Shopify' },  // ← add any US ticker
 ];
-```
-
-## Run Locally
-
-```bash
-npm install
-npm start
-# Open http://localhost:3000
 ```
 
 ## Deploy to Railway
@@ -40,36 +55,32 @@ npm start
 ### Step 1 — Push to GitHub
 
 ```bash
-git init
 git add .
-git commit -m "Initial commit"
-# Create a new repo on github.com, then:
-git remote add origin https://github.com/YOUR_USERNAME/rsi-dashboard.git
-git push -u origin main
+git commit -m "Update to Massive Market Data API"
+git push origin main
 ```
 
-### Step 2 — Deploy on Railway
+### Step 2 — Set environment variable on Railway
 
-1. Go to [railway.app](https://railway.app) and sign in (free tier works).
-2. Click **New Project** → **Deploy from GitHub repo**.
-3. Select your `rsi-dashboard` repository.
-4. Railway auto-detects Node.js, runs `npm install`, and starts `node server.js`.
-5. Click **Settings → Networking → Generate Domain** to get a public URL like:
-   ```
-   https://rsi-dashboard.up.railway.app
-   ```
-6. Open that URL from any device — no login required.
+1. Open your project on [railway.app](https://railway.app)
+2. Click your service → **Variables** tab
+3. Add: `MASSIVE_API_KEY` = your key from massive.com
+4. Railway will redeploy automatically
 
-### Environment Variables
+### Step 3 — Get your public URL
 
-No required env vars. Railway automatically sets `PORT`; the server reads `process.env.PORT`.
+Settings → Networking → Generate Domain →
+```
+https://rsi-dashboard-production.up.railway.app
+```
 
 ## RSI Zones
 
-| RSI Value | Zone       | Card Color  |
-|-----------|------------|-------------|
-| ≥ 70      | Overbought | Red tint    |
-| 30–70     | Neutral    | Dark (default) |
-| ≤ 30      | Oversold   | Green tint  |
+| RSI     | Zone       | Card colour |
+|---------|------------|-------------|
+| ≥ 70    | Overbought | Red tint    |
+| 30–70   | Neutral    | Dark        |
+| ≤ 30    | Oversold   | Green tint  |
 
-RSI is calculated using **Wilder's smoothing method** over the last 45 calendar days (~30 trading days) of daily close prices, with a period of 14.
+RSI is calculated using **Wilder's smoothing** over the last 45 calendar days
+(~30 trading days) of daily close prices, period = 14.
